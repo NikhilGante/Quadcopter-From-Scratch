@@ -1,3 +1,7 @@
+#include <Arduino.h>
+#include <Servo.h>
+#include <PID.h>
+
 int NWMotorPin = 2;
 int NEMotorPin = 3;
 int SWMotorPin = 5;
@@ -25,14 +29,14 @@ Servo SEMotor;
 
 void setup() 
 {
-  NWMotor.attach(NWMotorPin,1000,2000); // (pin, min pulse width, max pulse width in microseconds)
-  NEMotor.attach(NEMotorPin,1000,2000);
-  SWMotor.attach(SWMotorPin,1000,2000);
-  SEMotor.attach(SEMotorPin,1000,2000);
+  NWMotor.attach(NWMotorPin, 1000, 2000); // (pin, min pulse width, max pulse width in microseconds)
+  NEMotor.attach(NEMotorPin, 1000, 2000);
+  SWMotor.attach(SWMotorPin, 1000, 2000);
+  SEMotor.attach(SEMotorPin, 1000, 2000);
 }
 
 void loop() {
-  throttleVal = map(pulseIn (throttlePin,HIGH), 1000, 2000, 0, 180);
+  throttleVal = map(pulseIn (throttlePin, HIGH), 1000, 2000, 0, 100);
   aileronVal = map(pulseIn (aileronPin, HIGH), 1000, 2000, -90, 90);
   elevatorVal = map(pulseIn (elevatorPin, HIGH), 1000, 2000, -90, 90);
   rudderVal = map(pulseIn (rudderPin, HIGH), 1000, 2000, -90, 90);
