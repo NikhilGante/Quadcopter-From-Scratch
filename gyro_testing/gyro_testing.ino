@@ -1,128 +1,81 @@
-/*
-  Using the BNO08x IMU
-
-  This example shows how to output the parts of the calibrated gyro.
-
-  By: Nathan Seidle
-  SparkFun Electronics
-  Date: December 21st, 2017
-  SparkFun code, firmware, and software is released under the MIT License.
-	Please see LICENSE.md for further details.
-
-  Originally written by Nathan Seidle @ SparkFun Electronics, December 28th, 2017
-
-  Adjusted by Pete Lewis @ SparkFun Electronics, June 2023 to incorporate the
-  CEVA Sensor Hub Driver, found here:
-  https://github.com/ceva-dsp/sh2
-
-  Also, utilizing code from the Adafruit BNO08x Arduino Library by Bryan Siepert
-  for Adafruit Industries. Found here:
-  https://github.com/adafruit/Adafruit_BNO08x
-
-  Also, utilizing I2C and SPI read/write functions and code from the Adafruit
-  BusIO library found here:
-  https://github.com/adafruit/Adafruit_BusIO
-
-  Hardware Connections:
-  IoT RedBoard --> BNO08x
-  QWIIC --> QWIIC
-  A4  --> INT
-  A5  --> RST
-
-  BNO08x "mode" jumpers set for I2C (default):
-  PSO: OPEN
-  PS1: OPEN
-
-  Serial.print it out at 115200 baud to serial monitor.
-
-  Feel like supporting our work? Buy a board from SparkFun!
-  https://www.sparkfun.com/products/22857
-*/
-
 #include <Wire.h>
 
-#include "SparkFun_BNO08x_Arduino_Library.h" // CTRL+Click here to get the library: http://librarymanager/All#SparkFun_BNO08x
-
-BNO08x myIMU;
-
-// For the most reliable interaction with the SHTP bus, we need
-// to use hardware reset control, and to monitor the H_INT pin.
-// The H_INT pin will go low when its okay to talk on the SHTP bus.
-// Note, these can be other GPIO if you like.
-// Define as -1 to disable these features.
-#define BNO08X_INT  A4
-//#define BNO08X_INT  -1
-#define BNO08X_RST  A5
-//#define BNO08X_RST  -1
-
-#define BNO08X_ADDR 0x4B  // SparkFun BNO08x Breakout (Qwiic) defaults to 0x4B
-//#define BNO08X_ADDR 0x4A // Alternate address if ADR jumper is closed
+// ICM20948 I2C Address and Registers
+#define ICM20948_ADDRESS 0x68
+#define ACCEL_XOUT_H 0x2D
+#define GYRO_XOUT_H 0x33
 
 void setup() {
   Serial.begin(115200);
-  
-  while(!Serial) delay(10); // Wait for Serial to become available.
-  // Necessary for boards with native USB (like the SAMD51 Thing+).
-  // For a final version of a project that does not need serial debug (or a USB cable plugged in),
-  // Comment out this while loop, or it will prevent the remaining code from running.
-  
-  Serial.println();
-  Serial.println("BNO08x Read Example");
-
   Wire.begin();
+  Serial.println("Starting ICM20948 initialization...");
 
-  if (myIMU.begin() == false) {  // Setup without INT/RST control (Not Recommended)
-  // if (myIMU.begin(BNO08X_ADDR, Wire, BNO08X_INT, BNO08X_RST) == false) {
-    Serial.println("BNO08x not detected at default I2C address. Check your jumpers and the hookup guide. Freezing...");
-    while (1)
-      ;
+  uint8_t whoAmI = readRegister(ICM20948_ADDRESS, 0x00); // WHO_AM_I register
+  Serial.print("WHO_AM_I register: 0x");
+  Serial.println(whoAmI, HEX);
+
+  if (whoAmI != 0xEA) {
+    Serial.println("ICM20948 not detected! Check connections and address.");
+    while (1);
   }
-  Serial.println("BNO08x found!");
 
-  // Wire.setClock(400000); //Increase I2C data rate to 400kHz
+  writeRegister(ICM20948_ADDRESS, 0x06, 0x01); // PWR_MGMT_1: Set clock source
+  delay(10);
 
-  setReports();
-
-  Serial.println("Reading events");
-  delay(100);
-}
-
-// Here is where you define the sensor outputs you want to receive
-void setReports(void) {
-  Serial.println("Setting desired reports");
-  if (myIMU.enableGyro() == true) {
-    Serial.println(F("Gyro enabled"));
-    Serial.println(F("Output in form x, y, z, in radians per second"));
-  } else {
-    Serial.println("Could not enable gyro");
-  }
+  Serial.println("ICM20948 initialized successfully!");
 }
 
 void loop() {
-  delay(10);
+  float ax, ay, az, gx, gy, gz;
 
-  if (myIMU.wasReset()) {
-    Serial.print("sensor was reset ");
-    setReports();
-  }
+  readAccelerometer(ax, ay, az);
+  readGyroscope(gx, gy, gz);
 
-  // Has a new event come in on the Sensor Hub Bus?
-  if (myIMU.getSensorEvent() == true) {
+  Serial.print("Accel (g): ");
+  Serial.print(ax); Serial.print(", ");
+  Serial.print(ay); Serial.print(", ");
+  Serial.println(az);
 
-    // is it the correct sensor data we want?
-    if (myIMU.getSensorEventID() == SENSOR_REPORTID_GYROSCOPE_CALIBRATED) {
+  Serial.print("Gyro (dps): ");
+  Serial.print(gx); Serial.print(", ");
+  Serial.print(gy); Serial.print(", ");
+  Serial.println(gz);
 
-      float x = myIMU.getGyroX();
-      float y = myIMU.getGyroY();
-      float z = myIMU.getGyroZ();
+  delay(500);
+}
 
-      Serial.print(x, 2);
-      Serial.print(F(","));
-      Serial.print(y, 2);
-      Serial.print(F(","));
-      Serial.print(z, 2);
+void readAccelerometer(float &ax, float &ay, float &az) {
+  int16_t rawX = (readRegister(ICM20948_ADDRESS, ACCEL_XOUT_H) << 8) | readRegister(ICM20948_ADDRESS, ACCEL_XOUT_H + 1);
+  int16_t rawY = (readRegister(ICM20948_ADDRESS, ACCEL_XOUT_H + 2) << 8) | readRegister(ICM20948_ADDRESS, ACCEL_XOUT_H + 3);
+  int16_t rawZ = (readRegister(ICM20948_ADDRESS, ACCEL_XOUT_H + 4) << 8) | readRegister(ICM20948_ADDRESS, ACCEL_XOUT_H + 5);
 
-      Serial.println();
-    }
-  }
+  ax = rawX / 16384.0; // Assuming default ±2g range
+  ay = rawY / 16384.0;
+  az = rawZ / 16384.0;
+}
+
+void readGyroscope(float &gx, float &gy, float &gz) {
+  int16_t rawX = (readRegister(ICM20948_ADDRESS, GYRO_XOUT_H) << 8) | readRegister(ICM20948_ADDRESS, GYRO_XOUT_H + 1);
+  int16_t rawY = (readRegister(ICM20948_ADDRESS, GYRO_XOUT_H + 2) << 8) | readRegister(ICM20948_ADDRESS, GYRO_XOUT_H + 3);
+  int16_t rawZ = (readRegister(ICM20948_ADDRESS, GYRO_XOUT_H + 4) << 8) | readRegister(ICM20948_ADDRESS, GYRO_XOUT_H + 5);
+
+  gx = rawX / 131.0; // Assuming default ±250 dps range
+  gy = rawY / 131.0;
+  gz = rawZ / 131.0;
+}
+
+uint8_t readRegister(uint8_t deviceAddress, uint8_t registerAddress) {
+  Wire.beginTransmission(deviceAddress);
+  Wire.write(registerAddress);
+  Wire.endTransmission(false);
+
+  Wire.requestFrom(deviceAddress, (uint8_t)1);
+  return Wire.available() ? Wire.read() : 0;
+}
+
+void writeRegister(uint8_t deviceAddress, uint8_t registerAddress, uint8_t value) {
+  Wire.beginTransmission(deviceAddress);
+  Wire.write(registerAddress);
+  Wire.write(value);
+  Wire.endTransmission();
 }
