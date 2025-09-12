@@ -2,25 +2,13 @@
 #include <Servo.h>
 #include <PID.h>
 
-int NWMotorPin = 2;
-int NEMotorPin = 3;
-int SWMotorPin = 5;
-int SEMotorPin = 6;
+const int NWMotorPin = 2, NEMotorPin = 3, SWMotorPin = 5, SEMotorPin = 6;
+const int throttlePin = 7, aileronPin = 8, elevatorPin = 9, rudderPin = 10;
+const int throttleVal, aileronVal, elevatorVal, rudderVal;
 
-int throttlePin = 7;
-int aileronPin = 8;
-int elevatorPin = 9;
-int rudderPin = 10;
+const float max_allowed_pwr = 180;
 
-int throttleVal;
-int aileronVal;
-int elevatorVal;
-int rudderVal;
-
-int motor1Check;
-int motor2Check;
-int motor3Check;
-int motor4Check;
+float NWpwr, NEpwr, SWpwr, SEpwr;
 
 Servo NWMotor;     // create servo object to control the ESC
 Servo NEMotor;
@@ -36,37 +24,28 @@ void setup()
 }
 
 void loop() {
-  throttleVal = map(pulseIn (throttlePin, HIGH), 1000, 2000, 0, 100);
-  aileronVal = map(pulseIn (aileronPin, HIGH), 1000, 2000, -90, 90);
-  elevatorVal = map(pulseIn (elevatorPin, HIGH), 1000, 2000, -90, 90);
-  rudderVal = map(pulseIn (rudderPin, HIGH), 1000, 2000, -90, 90);
-  motor1Check = ((throttleVal*0.5)+ (aileronVal+0.1)- (elevatorVal*0.25) + (rudderVal*0.15));
-  motor2Check = ((throttleVal*0.5)- (aileronVal+0.1)- (elevatorVal*0.25) - (rudderVal*0.15));
-  motor3Check = ((throttleVal*0.5)+ (aileronVal+0.1)+ (elevatorVal*0.25) - (rudderVal*0.15));
-  motor4Check = ((throttleVal*0.5)- (aileronVal+0.1)+ (elevatorVal*0.25) + (rudderVal*0.15));
+  throttleVal = map(pulseIn(throttlePin, HIGH), 1000, 2000, 0, 100);
+  aileronVal = map(pulseIn(aileronPin, HIGH), 1000, 2000, -100, 100);
+  elevatorVal = map(pulseIn(elevatorPin, HIGH), 1000, 2000, -100, 100);
+  rudderVal = map(pulseIn(rudderPin, HIGH), 1000, 2000, -100, 100);
 
-  if (motor1Check > 175)
-  {motor1Check = 175;}
-  else if (motor1Check < 5)
-  {motor1Check = 5;}
-  
-  if (motor2Check > 175)
-  {motor2Check = 175;}
-  else if (motor2Check < 5)
-  {motor2Check = 5;}
-  
-  if (motor3Check > 175)
-  {motor3Check = 175;}
-  else if (motor3Check < 5)
-  {motor3Check = 5;}
+  float max_pwr = throttleVal + abs(aileronVal) * 0.2 + abs(elevatorVal) * 0.2 + rudderVal * 0.2;
+  NWpwr = constrain(throttleVal*0.5 + aileronVal*0.2 - elevatorVal*0.2 + rudderVal*0.2, 5, max_allowed_pwr);
+  NEpwr = constrain(throttleVal*0.5 - aileronVal*0.2 - elevatorVal*0.2 - rudderVal*0.2, 5, max_allowed_pwr);
+  SWpwr = constrain(throttleVal*0.5 + aileronVal*0.2 + elevatorVal*0.2 - rudderVal*0.2, 5, max_allowed_pwr);
+  SEpwr = constrain(throttleVal*0.5 - aileronVal*0.2 + elevatorVal*0.2 + rudderVal*0.2, 5, max_allowed_pwr);
 
-  if (motor4Check > 175)
-  {motor4Check = 175;}
-  else if (motor4Check < 5)
-  {motor4Check = 5;}
+  // Scale all motor powers such that no motor exceeds max_allowed_pwr, while maintaining relative proportions 
+  if(max_pwr > max_allowed_pwr){  
+    float scale = max_allowed_pwr/max_pwr;
+    NWpwr *= scale;  
+    NEpwr *= scale;  
+    SWpwr *= scale;  
+    SEpwr *= scale;  
+  }
   
-  NWMotor.write(motor1Check);
-  NEMotor.write(motor2Check);
-  SWMotor.write(motor3Check);
-  SEMotor.write(motor4Check);
+  NWMotor.write(NWpwr);
+  NEMotor.write(NEpwr);
+  SWMotor.write(SWpwr);
+  SEMotor.write(SEpwr);
 }
