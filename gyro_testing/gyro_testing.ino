@@ -31,15 +31,20 @@ void loop() {
   readAccelerometer(ax, ay, az);
   readGyroscope(gx, gy, gz);
 
-  Serial.print("Accel (g): ");
-  Serial.print(ax); Serial.print(", ");
-  Serial.print(ay); Serial.print(", ");
-  Serial.println(az);
+  // Serial.print("Accel (g): ");
+  // Serial.print(ax); Serial.print(", ");
+  // Serial.print(ay); Serial.print(", ");
+  // Serial.println(az);
 
-  Serial.print("Gyro (dps): ");
-  Serial.print(gx); Serial.print(", ");
-  Serial.print(gy); Serial.print(", ");
-  Serial.println(gz);
+  // Serial.print("Gyro (dps): ");
+  // Serial.print(gx); Serial.print(", ");
+  // Serial.print(gy); Serial.print(", ");
+  // Serial.println(gz);
+
+  Serial.print("Orientation: ");
+  Serial.print(asin(constrain(ax, -1.0, 1.0)) * 180/M_PI); Serial.print(", ");
+  Serial.print(asin(constrain(ay, -1.0, 1.0)) * 180/M_PI); Serial.print(", ");
+  Serial.println(az);
 
   delay(500);
 }
