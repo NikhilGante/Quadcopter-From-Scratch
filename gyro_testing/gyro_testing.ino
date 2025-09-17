@@ -6,18 +6,34 @@
 #define GYRO_XOUT_H 0x33
 
 float ax, ay, az, gx, gy, gz;
-// float s_gx, s_gy, s_gz; // Starting gyro (degrees/sec) values - used for calibration
+float s_gx, s_gy, s_gz; // Starting gyro (degrees/sec) values - used for calibration
 
-float angle = 0.0;         // Kalman filtered angle
-float bias = 0.0;          // Gyro bias
-float rate;                // Unbiased rate
-float P[2][2] = {{0, 0}, {0, 0}};  // Error covariance matrix
+class Kalman_Angle_Filter{
+  float angle = 0.0;         // Kalman filtered angle
+  float bias = 0.0;          // Gyro bias
+  float rate;                // Unbiased rate
+  float P[2][2] = {{0, 0}, {0, 0}};  // Error covariance matrix
+  
+  const float Q_angle = 0.001; // Process noise variance for the angle
+  const float Q_bias = 0.003;  // Process noise variance for the gyro bias
+  const float R_measure = 0.03; // Measurement noise variance
+  
+  unsigned long lastTime = 0;
+  
+public:
+ 
+  Kalman_Angle_Filter(float Q_angle, float Q_bias, float R_measure):
+    Q_angle(Q_angle), Q_bias(Q_bias), R_measure(R_measure)
+  {
 
-const float Q_angle = 0.001; // Process noise variance for the angle
-const float Q_bias = 0.003;  // Process noise variance for the gyro bias
-const float R_measure = 0.03; // Measurement noise variance
+  }
 
-unsigned long lastTime = 0;
+  float update(float new_angle, float new_rate);
+
+};
+
+Kalman_Angle_Filter Kalman_roll(0.001, 0.003, 0.03), Kalman_pitch(0.001, 0.003, 0.03);
+
 
 void setup() {
   Serial.begin(115200);
@@ -52,15 +68,12 @@ void loop() {
   readAccelerometer(ax, ay, az);
   readGyroscope(gx, gy, gz);
 
-  unsigned long now = millis();
-  float dt = (now - lastTime) / 1000.0;
-  lastTime = now;
 
   // --- Compute angles ---
   float acc_pitch = atan2(ay, az) * 180 / PI; // Approx pitch
   float gyro_rate = gx; // Use gyro X-axis for pitch in this example
 
-  float kalman_pitch = kalmanUpdate(acc_pitch, gyro_rate, dt);
+  float kalman_pitch = Kalman_pitch.update(acc_pitch, gyro_rate);
 
   Serial.print("Accel pitch: ");
   Serial.print(acc_pitch);
@@ -85,9 +98,13 @@ void loop() {
   delay(500);
 }
 
-float kalmanUpdate(float newAngle, float newRate, float dt) {
+float Kalman_filter::update(float new_angle, float new_rate) {
+  unsigned long now = millis();
+  float dt = (now - lastTime) / 1000.0;
+  lastTime = now;
+  
   // Predict
-  rate = newRate - bias;
+  rate = new_rate - bias;
   angle += dt * rate;
 
   P[0][0] += dt * (dt*P[1][1] - P[0][1] - P[1][0] + Q_angle);
@@ -97,11 +114,9 @@ float kalmanUpdate(float newAngle, float newRate, float dt) {
 
   // Update
   float S = P[0][0] + R_measure;
-  float K[2];
-  K[0] = P[0][0] / S;
-  K[1] = P[1][0] / S;
+  float K[2] = {P[0][0] / S, P[1][0] / S};
 
-  float y = newAngle - angle;
+  float y = new_angle - angle;
   angle += K[0] * y;
   bias += K[1] * y;
 
