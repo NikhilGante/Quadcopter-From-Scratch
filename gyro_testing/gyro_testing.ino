@@ -5,6 +5,9 @@
 #define ACCEL_XOUT_H 0x2D
 #define GYRO_XOUT_H 0x33
 
+float ax, ay, az, gx, gy, gz;
+float s_gx, s_gy, s_gz; // Starting gyro (degrees/sec) values - used for calibration
+
 void setup() {
   Serial.begin(115200);
   Wire.begin();
@@ -23,10 +26,12 @@ void setup() {
   delay(10);
 
   Serial.println("ICM20948 initialized successfully!");
+
+  readGyroscope(s_gx, s_gy, s_gz);
+
 }
 
 void loop() {
-  float ax, ay, az, gx, gy, gz;
 
   readAccelerometer(ax, ay, az);
   readGyroscope(gx, gy, gz);
@@ -36,15 +41,15 @@ void loop() {
   // Serial.print(ay); Serial.print(", ");
   // Serial.println(az);
 
-  // Serial.print("Gyro (dps): ");
-  // Serial.print(gx); Serial.print(", ");
-  // Serial.print(gy); Serial.print(", ");
-  // Serial.println(gz);
+  Serial.print("Gyro (dps): ");
+  Serial.print(gx - s_gx); Serial.print(", ");
+  Serial.print(gy - s_gy); Serial.print(", ");
+  Serial.println(gz - s_gz);
 
-  Serial.print("Orientation: ");
-  Serial.print(asin(constrain(ax, -1.0, 1.0)) * 180/M_PI); Serial.print(", ");
-  Serial.print(asin(constrain(ay, -1.0, 1.0)) * 180/M_PI); Serial.print(", ");
-  Serial.println(az);
+  // Serial.print(asin(constrain(ax, -1.0, 1.0)) * 180/M_PI); Serial.print(", ");
+  // Serial.print(asin(constrain(ay, -1.0, 1.0)) * 180/M_PI); Serial.print(", ");
+  // Serial.println(az);
+  // Serial.print("Orientation: ");
 
   delay(500);
 }
