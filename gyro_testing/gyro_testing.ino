@@ -58,29 +58,40 @@ public:
   }
 };
 
+  
 // Simple IIR (Infinite Impulse Response) Exponential Filter
-class Expo_Angle_Filter{
-  float alpha = 0.0;  // SHOULD BE between 0 - 1 higher alpha means trust new measurements more (if output isn't changing fast enough)
+class Expo_Angle_Filter {
+  float tau;             // Time constant in seconds (e.g. 0.5s) | larger -> smoother, smaller -> more responsive
   float angle = 0.0;
   unsigned long last_time = 0;
+  bool initialized = false;
 
 public:
-  Expo_Angle_Filter(float alpha): alpha(alpha)
-    {}
+  Expo_Angle_Filter(float tau): tau(tau) {}
 
-  void init(float initial_angle){  // Set initial angle
+  void init(float initial_angle) {
     angle = initial_angle;
+    last_time = millis();
+    initialized = true;
   }
 
   float update(float new_angle) {
     unsigned long now = millis();
-    float dt = (now - last_time) / 1000.0;
+    if (!initialized) {
+      init(new_angle);
+      return angle;
+    }
+
+    float dt = (now - last_time) / 1000.0f;  // Convert ms to seconds
     last_time = now;
 
-    angle = alpha * new_angle + (1.0 - alpha) * angle;
+    float alpha = 1.0f - exp(-dt / tau);  // Dynamic alpha
+
+    angle = alpha * new_angle + (1.0f - alpha) * angle;
     return angle;
   }
 };
+
 
 class ICM20948_IMU {
   const int ICM20948_ADDRESS = 0x68;  // I2C Address
@@ -92,7 +103,7 @@ class ICM20948_IMU {
 
   // Kalman_Angle_Filter Kalman_roll = Kalman_Angle_Filter(0.000001, 0.005, 0.0001);
   // Kalman_Angle_Filter Kalman_pitch = Kalman_Angle_Filter(0.000001, 0.005, 0.0001);
-  Expo_Angle_Filter Expo_roll = Expo_Angle_Filter(0.08), Expo_pitch = Expo_Angle_Filter(0.08);
+  Expo_Angle_Filter Expo_roll = Expo_Angle_Filter(0.1), Expo_pitch = Expo_Angle_Filter(0.1);
 
 public:
   float ax, ay, az, gx, gy, gz;
