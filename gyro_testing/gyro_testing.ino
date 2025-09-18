@@ -58,16 +58,41 @@ public:
   }
 };
 
+// Simple IIR (Infinite Impulse Response) Exponential Filter
+class Expo_Angle_Filter{
+  float alpha = 0.0;  // SHOULD BE between 0 - 1 higher alpha means trust new measurements more (if output isn't changing fast enough)
+  float angle = 0.0;
+  unsigned long last_time = 0;
+
+public:
+  Expo_Angle_Filter(float alpha): alpha(alpha)
+    {}
+
+  void init(float initial_angle){  // Set initial angle
+    angle = initial_angle;
+  }
+
+  float update(float new_angle) {
+    unsigned long now = millis();
+    float dt = (now - last_time) / 1000.0;
+    last_time = now;
+
+    angle = alpha * new_angle + (1.0 - alpha) * angle;
+    return angle;
+  }
+};
+
 class ICM20948_IMU {
   const int ICM20948_ADDRESS = 0x68;  // I2C Address
   const int ACCEL_XOUT_H = 0x2D, GYRO_XOUT_H = 0x33;  // Accel and Gyro Registers
 
   float s_gx, s_gy, s_gz; // Start (initial) gyro values - used for calibration
 
-  float kalman_roll, kalman_pitch;
+  float expo_roll, expo_pitch;
 
-  Kalman_Angle_Filter Kalman_roll = Kalman_Angle_Filter(0.000001, 0.005, 0.0001);
-  Kalman_Angle_Filter Kalman_pitch = Kalman_Angle_Filter(0.000001, 0.005, 0.0001);
+  // Kalman_Angle_Filter Kalman_roll = Kalman_Angle_Filter(0.000001, 0.005, 0.0001);
+  // Kalman_Angle_Filter Kalman_pitch = Kalman_Angle_Filter(0.000001, 0.005, 0.0001);
+  Expo_Angle_Filter Expo_roll = Expo_Angle_Filter(0.08), Expo_pitch = Expo_Angle_Filter(0.08);
 
 public:
   float ax, ay, az, gx, gy, gz;
@@ -86,13 +111,18 @@ public:
     writeRegister(ICM20948_ADDRESS, 0x06, 0x01); // PWR_MGMT_1: Set clock source
     delay(500);
 
-    readGyroscope(s_gx, s_gy, s_gz);
-    Serial.print("STARTING DPS | x: ");
-    Serial.print(s_gx);
-    Serial.print(", y : ");
-    Serial.print(s_gy);
-    Serial.print(", z: ");
-    Serial.println(s_gz);
+    // readGyroscope(s_gx, s_gy, s_gz);
+    // Serial.print("STARTING DPS | x: ");
+    // Serial.print(s_gx);
+    // Serial.print(", y : ");
+    // Serial.print(s_gy);
+    // Serial.print(", z: ");
+    // Serial.println(s_gz);
+    readAccelerometer(ax, ay, az);
+
+    Expo_roll.init(atan2(ax, az) * RAD_TO_DEG);
+    Expo_pitch.init(atan2(ay, az) * RAD_TO_DEG);
+
     Serial.println("ICM20948 initialized successfully!");
   }
 
@@ -100,19 +130,22 @@ public:
     readAccelerometer(ax, ay, az);
     readGyroscope(gx, gy, gz);
 
-    kalman_roll = Kalman_roll.update(atan2(ax, az) * RAD_TO_DEG, gy);
-    kalman_pitch = Kalman_pitch.update(atan2(ay, az) * RAD_TO_DEG, gx);
+    // kalman_roll = Kalman_roll.update(atan2(ax, az) * RAD_TO_DEG, gy);
+    // kalman_pitch = Kalman_pitch.update(atan2(ay, az) * RAD_TO_DEG, gx);
+    expo_roll = Expo_roll.update(atan2(ax, az) * RAD_TO_DEG);
+    expo_pitch = Expo_pitch.update(atan2(ay, az) * RAD_TO_DEG);
+    
   }
 
   void readAccelerometer(float &ax, float &ay, float &az);
   void readGyroscope(float &gx, float &gy, float &gz);
 
   float getRoll() const {
-    return kalman_roll;
+    return expo_roll;
   }
 
   float getPitch() const {
-    return kalman_pitch;
+    return expo_pitch;
   }
 };
 
