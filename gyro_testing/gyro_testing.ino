@@ -99,11 +99,12 @@ class ICM20948_IMU {
 
   float s_gx, s_gy, s_gz; // Start (initial) gyro values - used for calibration
 
-  float expo_roll, expo_pitch;
+  float filtered_roll = 0.0, filtered_pitch = 0.0, yaw = 0.0;
+  unsigned long last_time = 0;
 
   // Kalman_Angle_Filter Kalman_roll = Kalman_Angle_Filter(0.000001, 0.005, 0.0001);
   // Kalman_Angle_Filter Kalman_pitch = Kalman_Angle_Filter(0.000001, 0.005, 0.0001);
-  Expo_Angle_Filter Expo_roll = Expo_Angle_Filter(0.1), Expo_pitch = Expo_Angle_Filter(0.1);
+  Expo_Angle_Filter Expo_filter_roll = Expo_Angle_Filter(0.1), Expo_filter_pitch = Expo_Angle_Filter(0.1);
 
 public:
   float ax, ay, az, gx, gy, gz;
@@ -122,7 +123,15 @@ public:
     writeRegister(ICM20948_ADDRESS, 0x06, 0x01); // PWR_MGMT_1: Set clock source
     delay(500);
 
-    // readGyroscope(s_gx, s_gy, s_gz);
+    float acc_sum = 0.0;
+    for(int i = 0; i < 100; i += 1){
+      readGyroscope(s_gx, s_gy, s_gz);
+      acc_sum += s_gz;
+      delay(10);
+    }
+    s_gz = acc_sum / 100.0;
+    Serial.print("Avg: ");
+    Serial.println(s_gz);
     // Serial.print("STARTING DPS | x: ");
     // Serial.print(s_gx);
     // Serial.print(", y : ");
@@ -131,32 +140,39 @@ public:
     // Serial.println(s_gz);
     readAccelerometer(ax, ay, az);
 
-    Expo_roll.init(atan2(ax, az) * RAD_TO_DEG);
-    Expo_pitch.init(atan2(ay, az) * RAD_TO_DEG);
+    Expo_filter_roll.init(atan2(ax, az) * RAD_TO_DEG);
+    Expo_filter_pitch.init(atan2(ay, az) * RAD_TO_DEG);
 
     Serial.println("ICM20948 initialized successfully!");
   }
 
   void update() {
+    unsigned long now = millis();
     readAccelerometer(ax, ay, az);
     readGyroscope(gx, gy, gz);
 
+    float dt = (now - last_time) / 1000.0f;  // Convert ms to seconds
+    last_time = now;
     // kalman_roll = Kalman_roll.update(atan2(ax, az) * RAD_TO_DEG, gy);
     // kalman_pitch = Kalman_pitch.update(atan2(ay, az) * RAD_TO_DEG, gx);
-    expo_roll = Expo_roll.update(atan2(ax, az) * RAD_TO_DEG);
-    expo_pitch = Expo_pitch.update(atan2(ay, az) * RAD_TO_DEG);
-    
+    filtered_roll = Expo_filter_roll.update(atan2(ax, az) * RAD_TO_DEG);
+    filtered_pitch = Expo_filter_pitch.update(atan2(ay, az) * RAD_TO_DEG);
+    yaw += (gz - s_gz) * dt;
   }
 
   void readAccelerometer(float &ax, float &ay, float &az);
   void readGyroscope(float &gx, float &gy, float &gz);
 
   float getRoll() const {
-    return expo_roll;
+    return filtered_roll;
   }
 
   float getPitch() const {
-    return expo_pitch;
+    return filtered_pitch;
+  }
+
+  float getYaw() const {
+    return yaw;
   }
 };
 
@@ -173,6 +189,7 @@ void setup() {
 void loop() {
   Imu.update();
 
+/*
   // Serial.print("Kalman Roll: ");
   Serial.print(Imu.getRoll());
   // Serial.print("\tPitch: ");
@@ -182,7 +199,8 @@ void loop() {
   Serial.println(atan2(Imu.ax, Imu.az) * RAD_TO_DEG);
   // Serial.println(Imu.getPitch());
   // Serial.println(Imu.getPitch());
-
+*/
+  Serial.println(Imu.getYaw());
 }
 
 // --- Sensor reading and I2C helpers ---
