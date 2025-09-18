@@ -25,6 +25,8 @@ public:
   float update(float new_angle, float new_rate) {
     unsigned long now = millis();
     float dt = (now - lastTime) / 1000.0;
+    // Serial.print("Delta time: ");
+    // Serial.println(now - lastTime);
     lastTime = now;
 
     // Predict
@@ -56,21 +58,19 @@ public:
   }
 };
 
-// Make these global for simplicity
-
 class ICM20948_IMU {
   const int ICM20948_ADDRESS = 0x68;  // I2C Address
-  const int ACCEL_XOUT_H = 0x2D, GYRO_XOUT_H = 0x33;  // Registers
+  const int ACCEL_XOUT_H = 0x2D, GYRO_XOUT_H = 0x33;  // Accel and Gyro Registers
 
-  float ax, ay, az, gx, gy, gz;
   float s_gx, s_gy, s_gz; // Start (initial) gyro values - used for calibration
 
   float kalman_roll, kalman_pitch;
 
-  Kalman_Angle_Filter Kalman_roll = Kalman_Angle_Filter(0.001, 0.003, 0.03);
-  Kalman_Angle_Filter Kalman_pitch = Kalman_Angle_Filter(0.001, 0.003, 0.03);
+  Kalman_Angle_Filter Kalman_roll = Kalman_Angle_Filter(0.000001, 0.005, 0.0001);
+  Kalman_Angle_Filter Kalman_pitch = Kalman_Angle_Filter(0.000001, 0.005, 0.0001);
 
 public:
+  float ax, ay, az, gx, gy, gz;
   void init() {
     Serial.println("Starting ICM20948 initialization...");
 
@@ -129,12 +129,16 @@ void setup() {
 void loop() {
   Imu.update();
 
-  Serial.print("Roll: ");
+  // Serial.print("Kalman Roll: ");
   Serial.print(Imu.getRoll());
-  Serial.print("\tPitch: ");
-  Serial.println(Imu.getPitch());
+  // Serial.print("\tPitch: ");
+  Serial.print("\t");
+  // Serial.print("Roll: ");
 
-  delay(10);
+  Serial.println(atan2(Imu.ax, Imu.az) * RAD_TO_DEG);
+  // Serial.println(Imu.getPitch());
+  // Serial.println(Imu.getPitch());
+
 }
 
 // --- Sensor reading and I2C helpers ---
