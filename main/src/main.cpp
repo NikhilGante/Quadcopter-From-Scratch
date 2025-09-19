@@ -2,6 +2,9 @@
 #include <Servo.h>
 #include <PID_v1.h>
 
+// Local Includes
+#include "../lib/ICM20948_IMU.h"
+
 const int NWMotorPin = 2, NEMotorPin = 3, SWMotorPin = 5, SEMotorPin = 6;
 const int throttlePin = 7, aileronPin = 8, elevatorPin = 9, rudderPin = 10;
 int throttleVal, aileronVal, elevatorVal, rudderVal;
@@ -18,14 +21,12 @@ double Kp = 1.0, Ki = 0.0, Kd = 0.0;
 PID Pid_roll(&roll_input, &roll_output, &roll_setpoint, Kp, Ki, Kd, DIRECT);
 PID Pid_pitch(&pitch_input, &pitch_output, &pitch_setpoint, Kp, Ki, Kd, DIRECT);
 
-//Define Variables we'll be connecting to
-double Setpoint, Input, Output;
-
-//Specify the links and initial tuning parameters
-double Kp=2, Ki=5, Kd=1;
-PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
+// ICM20948_IMU Imu;
 
 void setup(){
+  Serial.begin(115200);
+  Wire.begin();
+
   NWMotor.attach(NWMotorPin, 1000, 2000); // (pin, min pulse width, max pulse width in microseconds)
   NEMotor.attach(NEMotorPin, 1000, 2000);
   SWMotor.attach(SWMotorPin, 1000, 2000);
@@ -34,9 +35,12 @@ void setup(){
   Pid_roll.SetMode(AUTOMATIC);
   Pid_pitch.SetMode(AUTOMATIC);
 
+  // Imu.init();
 }
 
 void loop() {
+  // Imu.update();
+
   throttleVal = map(pulseIn(throttlePin, HIGH), 1000, 2000, 0, 180);
   aileronVal = map(pulseIn(aileronPin, HIGH), 1000, 2000, -180, 180);
   elevatorVal = map(pulseIn(elevatorPin, HIGH), 1000, 2000, -180, 180);
