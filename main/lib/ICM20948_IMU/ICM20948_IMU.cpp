@@ -1,5 +1,5 @@
 #include "ICM20948_IMU.h"
-
+#include <Wire.h>
 // General I2C read/write helper functions
 
   uint8_t readRegister(uint8_t deviceAddress, uint8_t registerAddress) {

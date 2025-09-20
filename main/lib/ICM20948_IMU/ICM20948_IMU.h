@@ -1,10 +1,6 @@
 #pragma once
 
 #include <Arduino.h>
-#include <Wire.h>
-
-#define DEG_TO_RAD (M_PI / 180.0)
-#define RAD_TO_DEG (180.0 / M_PI)
 
 uint8_t readRegister(uint8_t deviceAddress, uint8_t registerAddress);
 void writeRegister(uint8_t deviceAddress, uint8_t registerAddress, uint8_t value);
@@ -38,36 +34,7 @@ class ICM20948_IMU {
 
 public:
   float ax, ay, az, gx, gy, gz;
-  void init() {
-    Serial.println("Starting ICM20948 initialization...");
-
-    uint8_t whoAmI = readRegister(ICM20948_ADDRESS, 0x00);
-    Serial.print("WHO_AM_I register: 0x");
-    Serial.println(whoAmI, HEX);
-
-    if (whoAmI != 0xEA) {
-      Serial.println("ICM20948 not detected! Check connections and address.");
-      while (1);
-    }
-
-    writeRegister(ICM20948_ADDRESS, 0x06, 0x01); // PWR_MGMT_1: Set clock source
-    delay(500);
-
-    float acc_sum = 0.0;
-    for(int i = 0; i < 100; i += 1){
-      readGyroscope(s_gx, s_gy, s_gz);
-      acc_sum += s_gz;
-      delay(10);
-    }
-    s_gz = acc_sum / 100.0;
-
-    readAccelerometer(ax, ay, az);
-
-    Expo_filter_roll.init(atan2(ax, az) * RAD_TO_DEG);
-    Expo_filter_pitch.init(atan2(ay, az) * RAD_TO_DEG);
-
-    Serial.println("ICM20948 initialized successfully!");
-  }
+  void init();
 
   void update();    // To be called once every loop
 
