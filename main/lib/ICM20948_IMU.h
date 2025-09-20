@@ -30,7 +30,8 @@ class ICM20948_IMU {
 
   float s_gx, s_gy, s_gz; // Start (initial) gyro values - used for calibration
 
-  float filtered_roll = 0.0, filtered_pitch = 0.0, yaw = 0.0;
+  float filtered_roll = 0.0, filtered_pitch = 0.0;
+  float roll = 0.0, pitch = 0.0, yaw = 0.0;
   unsigned long last_time = 0;
 
   Expo_Angle_Filter Expo_filter_roll = Expo_Angle_Filter(0.1), Expo_filter_pitch = Expo_Angle_Filter(0.1);
@@ -76,4 +77,5 @@ public:
   float getRoll() const;
   float getPitch() const;
   float getYaw() const;
+  float getYawRate() const; // Returns in degrees/sec
 };

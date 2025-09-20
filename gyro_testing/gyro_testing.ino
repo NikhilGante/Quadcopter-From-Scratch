@@ -105,7 +105,7 @@ class ICM20948_IMU {
 
   // Kalman_Angle_Filter Kalman_roll = Kalman_Angle_Filter(0.0001, 0.005, 0.0001);
   // Kalman_Angle_Filter Kalman_pitch = Kalman_Angle_Filter(0.0001, 0.005, 0.0001);
-  Expo_Angle_Filter Expo_filter_roll = Expo_Angle_Filter(0.1), Expo_filter_pitch = Expo_Angle_Filter(0.3);
+  Expo_Angle_Filter Expo_filter_roll = Expo_Angle_Filter(0.1), Expo_filter_pitch = Expo_Angle_Filter(0.1);
 
 public:
   float ax, ay, az, gx, gy, gz;
@@ -149,6 +149,7 @@ public:
     Expo_filter_pitch.init(atan2(ay, az) * RAD_TO_DEG);
     
     filtered_roll = atan2(ax, az) * RAD_TO_DEG;
+    filtered_pitch = atan2(ay, az) * RAD_TO_DEG;
 
     Serial.println("ICM20948 initialized successfully!");
   }
@@ -167,13 +168,19 @@ public:
     yaw += (gz - s_gz) * dt;
     roll += (gy - s_gy) * dt;
 
-    float ax_roll = atan2(ax, az) * RAD_TO_DEG;
-    if(fabs(ax_roll - filtered_roll) > 2.0){ // If angle changes more than 2 degrees in 10ms, listen only to gyro
-      filtered_roll = Expo_filter_roll.update(filtered_roll + (gy - s_gy) * dt);
-      filtered_roll += (gy - s_gy) * dt;
+    float accel_roll = atan2(ax, az) * RAD_TO_DEG;
+    if(fabs(accel_roll - filtered_roll)/dt > 500.0){ // If angle changes more than x degs/s, listen only to gyro
+      filtered_roll = Expo_filter_roll.update((filtered_roll + (gy - s_gy) * dt) * 0.5 + 0.5 * accel_roll);
       Serial.print("Relying only on gyro!\t");
     }
-    else  filtered_roll = Expo_filter_roll.update(ax_roll);
+    else  filtered_roll = Expo_filter_roll.update(accel_roll);
+
+    float accel_pitch = atan2(ay, az) * RAD_TO_DEG;
+    if(fabs(accel_pitch - filtered_pitch)/dt > 500.0){ // If angle changes more than x degs/s, listen only to gyro
+      filtered_pitch = Expo_filter_pitch.update((filtered_pitch + (gx - s_gx) * dt) * 0.5 + 0.5 * accel_pitch);
+      Serial.print("[pitch]Relying only on gyro!\t");
+    }
+    else  filtered_pitch = Expo_filter_pitch.update(accel_pitch);
   }
 
   void readAccelerometer(float &ax, float &ay, float &az);
@@ -191,6 +198,10 @@ public:
   float getYaw() const {
     return yaw;
   }
+
+  float getYawRate() const{ // Returns in degrees/sec
+    return gz - s_gz;
+  }
 };
 
 // --- Global IMU object ---
@@ -207,13 +218,14 @@ void loop() {
   Imu.update();
 
 
-  // Serial.print("Kalman Roll: ");
+  Serial.print("Kalman Roll: ");
   Serial.print(Imu.getRoll());
-  // Serial.print("\tPitch: ");
-  Serial.print("\t");
+  Serial.print("\tPitch: ");
+  // Serial.print("\t");
+  Serial.println(Imu.getPitch());
   // Serial.print("Roll: ");
 
-  Serial.println(atan2(Imu.ax, Imu.az) * RAD_TO_DEG);
+  // Serial.println(atan2(Imu.ax, Imu.az) * RAD_TO_DEG);
   // Serial.println(Imu.getPitch());
   // Serial.println(Imu.getPitch());
 

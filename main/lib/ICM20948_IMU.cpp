@@ -59,35 +59,62 @@
     }
 
     writeRegister(ICM20948_ADDRESS, 0x06, 0x01); // PWR_MGMT_1: Set clock source
-    delay(500);
+    delay(500); // Wait for gyro to settle (stop moving)
 
-    float acc_sum = 0.0;
+    float acc_sum_x = 0.0, acc_sum_y = 0.0, acc_sum_z = 0.0;
     for(int i = 0; i < 100; i += 1){
       readGyroscope(s_gx, s_gy, s_gz);
-      acc_sum += s_gz;
+      acc_sum_x += s_gx;
+      acc_sum_y += s_gy;
+      acc_sum_z += s_gz;
       delay(10);
     }
-    s_gz = acc_sum / 100.0;
+    s_gx = acc_sum_x / 100.0;
+    s_gy = acc_sum_y / 100.0;
+    s_gz = acc_sum_z / 100.0;
+/*
+    Serial.print("STARTING DPS | x: ");
+    Serial.print(s_gx);
+    Serial.print(", y : ");
+    Serial.print(s_gy);
+    Serial.print(", z: ");
+    Serial.println(s_gz);
+*/
     readAccelerometer(ax, ay, az);
 
     Expo_filter_roll.init(atan2(ax, az) * RAD_TO_DEG);
     Expo_filter_pitch.init(atan2(ay, az) * RAD_TO_DEG);
+    
+    filtered_roll = atan2(ax, az) * RAD_TO_DEG;
+    filtered_pitch = atan2(ay, az) * RAD_TO_DEG;
 
     Serial.println("ICM20948 initialized successfully!");
   }
 
   void ICM20948_IMU::update() {
+    
     unsigned long now = millis();
     readAccelerometer(ax, ay, az);
     readGyroscope(gx, gy, gz);
 
     float dt = (now - last_time) / 1000.0f;  // Convert ms to seconds
     last_time = now;
-    // kalman_roll = Kalman_roll.update(atan2(ax, az) * RAD_TO_DEG, gy);
-    // kalman_pitch = Kalman_pitch.update(atan2(ay, az) * RAD_TO_DEG, gx);
-    filtered_roll = Expo_filter_roll.update(atan2(ax, az) * RAD_TO_DEG);
-    filtered_pitch = Expo_filter_pitch.update(atan2(ay, az) * RAD_TO_DEG);
     yaw += (gz - s_gz) * dt;
+    roll += (gy - s_gy) * dt;
+
+    float accel_roll = atan2(ax, az) * RAD_TO_DEG;
+    if(fabs(accel_roll - filtered_roll)/dt > 500.0){ // If angle changes more than x degs/s, listen only to gyro
+      filtered_roll = Expo_filter_roll.update((filtered_roll + (gy - s_gy) * dt) * 0.5 + 0.5 * accel_roll);
+      Serial.print("Relying only on gyro!\t");
+    }
+    else  filtered_roll = Expo_filter_roll.update(accel_roll);
+
+    float accel_pitch = atan2(ay, az) * RAD_TO_DEG;
+    if(fabs(accel_pitch - filtered_pitch)/dt > 500.0){ // If angle changes more than x degs/s, listen only to gyro
+      filtered_pitch = Expo_filter_pitch.update((filtered_pitch + (gx - s_gx) * dt) * 0.5 + 0.5 * accel_pitch);
+      Serial.print("[pitch]Relying only on gyro!\t");
+    }
+    else  filtered_pitch = Expo_filter_pitch.update(accel_pitch);
   }
 
   float ICM20948_IMU::getRoll() const {
@@ -102,6 +129,9 @@
     return yaw;
   }
 
+  float ICM20948_IMU::getYawRate() const{ // Returns in degrees/sec
+    return gz - s_gz;
+  }
 
 // --- Sensor reading and I2C helpers ---
 
