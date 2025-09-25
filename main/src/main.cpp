@@ -6,6 +6,8 @@
 // Local Includes
 #include "ICM20948_IMU.h"
 
+#define MOTORS_RUNNING
+
 const int NWMotorPin = 3, NEMotorPin = 4, SWMotorPin = 6, SEMotorPin = 5;
 const int throttlePin = 50, aileronPin = 46, elevatorPin = 48, rudderPin = 52, killSwitchPin = 44;
 int throttleVal, aileronVal, elevatorVal, rudderVal;
@@ -28,27 +30,29 @@ void setup(){
   Serial.begin(115200);
   Wire.begin();
 
+#ifdef MOTORS_RUNNING
   NWMotor.attach(NWMotorPin, 1000, 2000); // (pin, min pulse width, max pulse width in microseconds)
   NEMotor.attach(NEMotorPin, 1000, 2000);
   SWMotor.attach(SWMotorPin, 1000, 2000);
   SEMotor.attach(SEMotorPin, 1000, 2000);
+#endif
 
   Pid_roll.SetMode(AUTOMATIC);
   Pid_pitch.SetMode(AUTOMATIC);
 
-  Imu.init();
+  Imu.init(true); // Tare IMU to set current orientation as level (0 roll, 0 pitch)
 }
 
 void loop() {
   Imu.update();
 
-  // Serial.print("Kalman Roll: ");
-  // Serial.print(Imu.getRoll());
-  // Serial.print("\tPitch: ");
-  // // Serial.print("\t");
-  // Serial.print(Imu.getPitch());
-  // Serial.print("\tYaw: ");
-  // Serial.print(Imu.getYaw()); 
+  Serial.print("Kalman Roll: ");
+  Serial.print(Imu.getRoll());
+  Serial.print("\tPitch: ");
+  // Serial.print("\t");
+  Serial.print(Imu.getPitch());
+  Serial.print("\tYaw: ");
+  Serial.print(Imu.getYaw()); 
 
   // throttleVal = map(pulseIn(throttlePin, HIGH), 990, 1990, 0, 100);
   // aileronVal = map(pulseIn(aileronPin, HIGH), 995, 1985, -100, 100);
@@ -79,10 +83,10 @@ void loop() {
   SEpwr = throttleVal*0.5 - aileronVal*0.3 + elevatorVal*0.3 + rudderVal*0.4;
 
 
-  Serial.print("NWpwr: "); Serial.print(NWpwr);
-  Serial.print("\tNEpwr: "); Serial.print(NEpwr);
-  Serial.print("\tSWpwr: "); Serial.print(SWpwr); 
-  Serial.print("\tSEpwr: "); Serial.print(SEpwr);
+  // Serial.print("NWpwr: "); Serial.print(NWpwr);
+  // Serial.print("\tNEpwr: "); Serial.print(NEpwr);
+  // Serial.print("\tSWpwr: "); Serial.print(SWpwr); 
+  // Serial.print("\tSEpwr: "); Serial.print(SEpwr);
 
   // // Scale all motor powers such that no motor exceeds max_allowed_pwr, while maintaining relative proportions 
   // if(max_pwr > max_allowed_pwr){  
@@ -98,10 +102,13 @@ void loop() {
     SWpwr = 0;
     SEpwr = 0;
   }
+
+#ifdef MOTORS_RUNNING
   NWMotor.write(NWpwr);
   NEMotor.write(NEpwr);
   SWMotor.write(SWpwr);
   SEMotor.write(SEpwr);
+#endif
 
   Serial.println();
 }

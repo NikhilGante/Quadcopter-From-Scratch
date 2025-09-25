@@ -34,7 +34,8 @@ class ICM20948_IMU {
 
 public:
   float ax, ay, az, gx, gy, gz;
-  void init();
+  float start_roll_offset = 0.0, start_pitch_offset = 0.0;  // Angular offsets to be subtracted from accelerometer readings
+  void init(bool tare = true);
 
   void update();    // To be called once every loop
 
